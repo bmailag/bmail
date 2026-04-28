@@ -3,11 +3,15 @@ name: build
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
   release:
     types: [published]
   workflow_dispatch:
+
+permissions:
+  contents: write   # needed for tag-push releases
 
 jobs:
   build-wasm:
@@ -25,10 +29,13 @@ jobs:
       - name: Build vpmail.wasm
         run: make wasm
 
-      - name: Report SHA-256
+      - name: Compute SHA-256
+        id: hash
         run: |
-          echo "SHA-256 of vpmail.wasm:"
-          shasum -a 256 vpmail.wasm | tee vpmail.wasm.sha256
+          SHA=$(shasum -a 256 vpmail.wasm | awk '{print $1}')
+          echo "SHA-256 of vpmail.wasm: $SHA"
+          shasum -a 256 vpmail.wasm > vpmail.wasm.sha256
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -39,10 +46,45 @@ jobs:
             vpmail.wasm.sha256
           if-no-files-found: error
 
-      - name: Attach to release
+      # When a release event fires (e.g. someone created a release via the UI
+      # or `gh release create`), upload assets to that existing release.
+      - name: Attach to existing release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
+          files: |
+            vpmail.wasm
+            vpmail.wasm.sha256
+
+      # When a tag push fires (e.g. the GitLab publish:wasm-mirror job pushed
+      # a new sync tag), create the release if it doesn't exist and upload
+      # assets. This is the auto-publication path for routine source syncs.
+      - name: Create release for tag push
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            Automated release built by GitHub Actions from tag `${{ github.ref_name }}`.
+
+            **SHA-256 of `vpmail.wasm`:**
+
+            ```
+            ${{ steps.hash.outputs.sha256 }}
+            ```
+
+            This is the exact byte sequence served as `/crypto.wasm` on bmail.ag.
+            To verify locally:
+
+            ```
+            git clone https://github.com/bmailag/bmail.git
+            cd bmail
+            docker run --rm -v "$PWD":/src -w /src golang:1.26.1 make wasm
+            shasum -a 256 vpmail.wasm
+            ```
+
+            Built with Go 1.26.1 (linux/amd64).
           files: |
             vpmail.wasm
             vpmail.wasm.sha256
