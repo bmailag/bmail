@@ -23,7 +23,7 @@ jobs:
         with:
           # Must match the Go version used by the GitLab CI job that builds
           # the vpmail.wasm served at bmail.ag. Bump in lockstep.
-          go-version: '1.26.1'
+          go-version: '1.26.2'
           check-latest: false
 
       - name: Build vpmail.wasm
@@ -80,11 +80,11 @@ jobs:
             ```
             git clone https://github.com/bmailag/bmail.git
             cd bmail
-            docker run --rm -v "$PWD":/src -w /src golang:1.26.1 make wasm
+            docker run --rm -v "$PWD":/src -w /src golang:1.26.2 make wasm
             shasum -a 256 vpmail.wasm
             ```
 
-            Built with Go 1.26.1 (linux/amd64).
+            Built with Go 1.26.2 (linux/amd64).
           files: |
             vpmail.wasm
             vpmail.wasm.sha256
@@ -95,6 +95,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.1'
+          go-version: '1.26.2'
           check-latest: false
       - run: go test ./internal/crypto/...

@@ -12,14 +12,14 @@ running in your browser is built from this source.
 
 ## Build it yourself
 
-You need Go 1.26.1 on Linux. The byte output of `GOOS=js GOARCH=wasm` builds
+You need Go 1.26.2 on Linux. The byte output of `GOOS=js GOARCH=wasm` builds
 depends on the build host, so a macOS or Windows build will not match the
 published Linux hash. To reproduce on a non-Linux machine, use Docker:
 
 ```
 git clone https://github.com/bmailag/bmail.git
 cd bmail
-docker run --rm -v "$PWD":/src -w /src golang:1.26.1 make wasm
+docker run --rm -v "$PWD":/src -w /src golang:1.26.2 make wasm
 ```
 
 On Linux, the Docker step is unnecessary:
