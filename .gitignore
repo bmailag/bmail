@@ -1,0 +1,9 @@
+# Build output
+vpmail.wasm
+*.wasm.sha256
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
