@@ -12,10 +12,17 @@ running in your browser is built from this source.
 
 ## Build it yourself
 
-You need Go 1.26.1. To get a byte-identical match with the published release,
-use the exact Go version pinned in `.github/workflows/build.yml`. The build
-will work on newer Go versions too, but the resulting hash may differ slightly
-because the Go compiler evolves between releases.
+You need Go 1.26.1 on Linux. The byte output of `GOOS=js GOARCH=wasm` builds
+depends on the build host, so a macOS or Windows build will not match the
+published Linux hash. To reproduce on a non-Linux machine, use Docker:
+
+```
+git clone https://github.com/bmailag/bmail.git
+cd bmail
+docker run --rm -v "$PWD":/src -w /src golang:1.26.1 make wasm
+```
+
+On Linux, the Docker step is unnecessary:
 
 ```
 git clone https://github.com/bmailag/bmail.git
