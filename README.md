@@ -31,8 +31,11 @@ make wasm
 ```
 
 This produces `vpmail.wasm` in the repo root and prints its SHA-256 hash. The
-hash should match the one shown on the corresponding release at
-[github.com/bmailag/bmail/releases](https://github.com/bmailag/bmail/releases).
+hash should match the latest release at
+[github.com/bmailag/bmail/releases](https://github.com/bmailag/bmail/releases),
+which lists every published `vpmail.wasm` along with its SHA-256 in the
+release notes and as a downloadable `.sha256` file. The same bytes are what
+bmail.ag serves to your browser.
 
 The build is reproducible because it uses these flags:
 
