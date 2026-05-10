@@ -24,11 +24,14 @@ import (
 // Inputs and outputs are base64-encoded.
 
 // aesGcmEncryptShareJS encrypts a base64-encoded plaintext with a base64-
-// encoded 32-byte AES-256-GCM key. Args: keyB64, plaintextB64.
-// Returns base64(nonce || ciphertext || tag).
+// encoded 32-byte AES-256-GCM key. Args: keyB64, plaintextB64, [aad].
+// The optional 3rd argument is plain UTF-8 (not base64) — when present
+// it's bound into the AEAD as additionalData, matching how the web
+// path constructs `chunk:N` for drive chunked uploads. Returns
+// base64(nonce || ciphertext || tag).
 func aesGcmEncryptShareJS(args []js.Value) (interface{}, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("aesGcmEncryptShare requires 2 args: keyB64, plaintextB64")
+		return nil, fmt.Errorf("aesGcmEncryptShare requires 2+ args: keyB64, plaintextB64, [aad]")
 	}
 	key, err := unb64(args[0].String())
 	if err != nil {
@@ -40,6 +43,10 @@ func aesGcmEncryptShareJS(args []js.Value) (interface{}, error) {
 	plaintext, err := unb64(args[1].String())
 	if err != nil {
 		return nil, fmt.Errorf("decode plaintext: %w", err)
+	}
+	var aad []byte
+	if len(args) >= 3 && args[2].Type() == js.TypeString {
+		aad = []byte(args[2].String())
 	}
 
 	block, err := aes.NewCipher(key)
@@ -54,17 +61,20 @@ func aesGcmEncryptShareJS(args []js.Value) (interface{}, error) {
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("read nonce: %w", err)
 	}
-	// Seal appends ciphertext+tag to nonce.
-	out := gcm.Seal(nonce, nonce, plaintext, nil)
+	// Seal appends ciphertext+tag to nonce. AAD bound when present.
+	out := gcm.Seal(nonce, nonce, plaintext, aad)
 	return b64(out), nil
 }
 
 // aesGcmDecryptShareJS decrypts a base64(nonce || ciphertext || tag) blob
-// with a base64-encoded 32-byte AES-256-GCM key. Args: keyB64, blobB64.
+// with a base64-encoded 32-byte AES-256-GCM key. Args: keyB64, blobB64,
+// [aad]. The optional 3rd argument mirrors aesGcmEncryptShareJS — UTF-8
+// plain text bound into the AEAD as additionalData. Pass the same AAD
+// the chunk was encrypted with (e.g. `chunk:7`) or the tag check fails.
 // Returns base64-encoded plaintext.
 func aesGcmDecryptShareJS(args []js.Value) (interface{}, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("aesGcmDecryptShare requires 2 args: keyB64, blobB64")
+		return nil, fmt.Errorf("aesGcmDecryptShare requires 2+ args: keyB64, blobB64, [aad]")
 	}
 	key, err := unb64(args[0].String())
 	if err != nil {
@@ -76,6 +86,10 @@ func aesGcmDecryptShareJS(args []js.Value) (interface{}, error) {
 	blob, err := unb64(args[1].String())
 	if err != nil {
 		return nil, fmt.Errorf("decode blob: %w", err)
+	}
+	var aad []byte
+	if len(args) >= 3 && args[2].Type() == js.TypeString {
+		aad = []byte(args[2].String())
 	}
 
 	block, err := aes.NewCipher(key)
@@ -91,7 +105,7 @@ func aesGcmDecryptShareJS(args []js.Value) (interface{}, error) {
 	}
 	nonce := blob[:gcm.NonceSize()]
 	ct := blob[gcm.NonceSize():]
-	plaintext, err := gcm.Open(nil, nonce, ct, nil)
+	plaintext, err := gcm.Open(nil, nonce, ct, aad)
 	if err != nil {
 		return nil, fmt.Errorf("gcm.Open: %w", err)
 	}
