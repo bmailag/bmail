@@ -80,6 +80,13 @@ func main() {
 	// Drive share AES-GCM (matches Web Crypto API format)
 	vpCrypto.Set("aesGcmEncryptShare", jsFunc(aesGcmEncryptShareJS))
 	vpCrypto.Set("aesGcmDecryptShare", jsFunc(aesGcmDecryptShareJS))
+	// Binary-input variant of aesGcmDecryptShare — takes a Uint8Array
+	// of ciphertext and returns a Uint8Array of plaintext. Mobile drive
+	// chunked-download uses this to avoid the ~85 MB base64 strings per
+	// 64 MB chunk that were tipping iOS Hermes over the per-app memory
+	// ceiling on multi-GB files. Web doesn't call it (Web Crypto's
+	// subtle.decrypt is native and bypasses WASM entirely).
+	vpCrypto.Set("aesGcmDecryptShareBytes", jsFunc(aesGcmDecryptShareBytesJS))
 	vpCrypto.Set("pbkdf2DeriveShareKey", jsFunc(pbkdf2DeriveShareKeyJS))
 	vpCrypto.Set("generateRandomBytes", jsFunc(generateRandomBytesJS))
 

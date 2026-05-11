@@ -112,6 +112,62 @@ func aesGcmDecryptShareJS(args []js.Value) (interface{}, error) {
 	return b64(plaintext), nil
 }
 
+// aesGcmDecryptShareBytesJS is the binary-input variant of
+// aesGcmDecryptShareJS. Args: keyB64 (string), ciphertext (Uint8Array),
+// [aad (string)]. Returns plaintext as a Uint8Array.
+//
+// Used by the mobile chunked-drive download path so 64 MB chunks
+// round-trip through WASM as raw bytes instead of as ~85 MB base64
+// strings on each side. Eliminates ~340 MB of transient string
+// allocation per chunk (b64-encode in JS → b64-decode in Go → b64-
+// encode in Go → b64-decode in JS); chunked 2 GB+ downloads on iOS
+// were OOM'ing in Hermes' string heap before this. Web's equivalent
+// is crypto.subtle.decrypt on a Uint8Array — same binary-throughout
+// shape, native there because Web Crypto exists.
+func aesGcmDecryptShareBytesJS(args []js.Value) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("aesGcmDecryptShareBytes requires 2+ args: keyB64, ciphertext (Uint8Array), [aad]")
+	}
+	key, err := unb64(args[0].String())
+	if err != nil {
+		return nil, fmt.Errorf("decode key: %w", err)
+	}
+	if len(key) != 32 {
+		return nil, fmt.Errorf("invalid key length: %d (expected 32)", len(key))
+	}
+	ctVal := args[1]
+	if ctVal.Type() != js.TypeObject {
+		return nil, fmt.Errorf("ciphertext must be a Uint8Array")
+	}
+	blob := make([]byte, ctVal.Get("length").Int())
+	js.CopyBytesToGo(blob, ctVal)
+	var aad []byte
+	if len(args) >= 3 && args[2].Type() == js.TypeString {
+		aad = []byte(args[2].String())
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("aes.NewCipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("cipher.NewGCM: %w", err)
+	}
+	if len(blob) < gcm.NonceSize()+gcm.Overhead() {
+		return nil, fmt.Errorf("blob too short")
+	}
+	nonce := blob[:gcm.NonceSize()]
+	ct := blob[gcm.NonceSize():]
+	plaintext, err := gcm.Open(nil, nonce, ct, aad)
+	if err != nil {
+		return nil, fmt.Errorf("gcm.Open: %w", err)
+	}
+	out := js.Global().Get("Uint8Array").New(len(plaintext))
+	js.CopyBytesToJS(out, plaintext)
+	return out, nil
+}
+
 // pbkdf2DeriveShareKeyJS derives a 32-byte AES-256-GCM key from a password
 // using PBKDF2-HMAC-SHA256. Matches the parameters used by the web
 // DriveShareModal: 100,000 iterations, SHA-256, 256-bit output.
