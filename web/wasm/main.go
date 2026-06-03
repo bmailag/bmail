@@ -93,6 +93,12 @@ func main() {
 	// Key Transparency
 	vpCrypto.Set("verifyKTProof", jsFunc(verifyKTProof))
 	vpCrypto.Set("verifyMyKey", jsFunc(verifyMyKey))
+	vpCrypto.Set("verifyGroupKey", jsFunc(verifyGroupKey))
+
+	// E2E private groups (ADR-012)
+	vpCrypto.Set("generateGroupKeypair", jsFunc(generateGroupKeypair))
+	vpCrypto.Set("wrapGroupSecret", jsFunc(wrapGroupSecret))
+	vpCrypto.Set("unwrapGroupSecret", jsFunc(unwrapGroupSecret))
 
 	// PGP (OpenPGP interoperability)
 	vpCrypto.Set("pgpGenerateKey", jsFunc(pgpGenerateKey))
